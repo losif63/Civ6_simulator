@@ -134,7 +134,7 @@ def _generate_plot_types(
     world_age: float = 3.0,
     num_continents: int = 3,
     land_fraction: float = 0.45,
-) -> Dict[Tuple[int, int], int]:
+) -> Tuple[Dict[Tuple[int, int], int], Dict[Tuple[int, int], float]]:
     """
     Stage 1: assign OCEAN / LAND / HILLS / MOUNTAIN to every tile.
 
@@ -220,7 +220,7 @@ def _generate_plot_types(
             elif tv >= hills_thresh:
                 plot_types[(q, r)] = _HILLS
 
-    return plot_types
+    return plot_types, continent_field
 
 
 # ---------------------------------------------------------------------------
@@ -565,33 +565,64 @@ def _add_features(
 def _generate_rivers(
     plot_types: Dict[Tuple[int, int], int],
     terrain_types: Dict[Tuple[int, int], TerrainType],
+    continent_field: Dict[Tuple[int, int], float],
     width: int,
     height: int,
     rng: random.Random,
-    num_rivers: int = 0,   # 0 = auto
+    num_rivers: int = 0,
 ) -> Dict[Tuple[int, int], List[int]]:
     """
     Stage 5: generate rivers.
 
-    Rivers start from mountain/hill tiles, flow to the lowest adjacent
-    non-water tile, and terminate when reaching water or grid edge.
-    Returns {(q,r): [edge_indices]} for tiles that carry a river segment.
+    Rivers start from mountain/hill tiles and greedily flow to the lowest
+    adjacent tile, terminating when they reach ocean or coast.
 
-    Edge indices for flat-top hex: 0=E, 1=NE, 2=NW, 3=W, 4=SW, 5=SE
+    Elevation = integer tier (mountain=4, hills=3, land=2, coast=1, ocean=0)
+              + continent_field value as a fractional component.
+    This gives every tile a unique continuous elevation so the greedy descent
+    always finds a downhill path all the way to the coastline.
+
+    Edge-index → neighbour-offset mapping (flat-top hex, y-axis down):
+      Corners at angles 60°*i; edge i connects corner[i] to corner[(i+1)%6].
+      Edge 0 (0°–60°)   faces E   → neighbour (dq=+1, dr= 0)
+      Edge 1 (60°–120°) faces SE  → neighbour (dq= 0, dr=+1)
+      Edge 2 (120°–180°)faces SW  → neighbour (dq=-1, dr=+1)
+      Edge 3 (180°–240°)faces W   → neighbour (dq=-1, dr= 0)
+      Edge 4 (240°–300°)faces NW  → neighbour (dq= 0, dr=-1)
+      Edge 5 (300°–360°)faces NE  → neighbour (dq=+1, dr=-1)
     """
-    # Elevation proxy: mountain=4, hills=3, land=2, coast=1, ocean=0
-    def elev(q: int, r: int) -> int:
+    # Correct edge-index → (dq, dr) table, derived from flat-top corner geometry.
+    _EDGE_TO_DIR: List[Tuple[int, int]] = [
+        ( 1,  0),   # edge 0 → E
+        ( 0,  1),   # edge 1 → SE
+        (-1,  1),   # edge 2 → SW
+        (-1,  0),   # edge 3 → W
+        ( 0, -1),   # edge 4 → NW
+        ( 1, -1),   # edge 5 → NE
+    ]
+    # Reverse lookup: (dq, dr) → edge index
+    _DIR_TO_EDGE: Dict[Tuple[int, int], int] = {v: k for k, v in enumerate(_EDGE_TO_DIR)}
+
+    def elev(q: int, r: int) -> float:
+        """Continuous elevation: integer tier + continent_field fraction."""
         pt = plot_types.get((q, r), _OCEAN)
-        if pt == _MOUNTAIN: return 4
-        if pt == _HILLS:    return 3
-        if pt == _LAND:     return 2
+        if pt == _MOUNTAIN:
+            tier = 4
+        elif pt == _HILLS:
+            tier = 3
+        elif pt == _LAND:
+            tier = 2
+        else:
+            tt = terrain_types.get((q, r), TerrainType.OCEAN)
+            tier = 1 if tt == TerrainType.COAST else 0
+        return tier + continent_field.get((q, r), 0.0)
+
+    def is_water(q: int, r: int) -> bool:
         tt = terrain_types.get((q, r), TerrainType.OCEAN)
-        if tt == TerrainType.COAST: return 1
-        return 0
+        return tt in (TerrainType.OCEAN, TerrainType.COAST)
 
     river_edges: Dict[Tuple[int, int], List[int]] = {}
 
-    # Collect candidate sources: mountains and hills
     sources = [(q, r) for (q, r), pt in plot_types.items()
                if pt in (_MOUNTAIN, _HILLS)]
 
@@ -610,27 +641,25 @@ def _generate_rivers(
         visited: Set[Tuple[int, int]] = set()
         q, r = sq, sr
 
-        for _ in range(50):   # max river length
+        for _ in range(80):
             if (q, r) in visited:
                 break
             visited.add((q, r))
             path.append((q, r))
 
-            # Check if we reached water
-            tt = terrain_types.get((q, r), TerrainType.OCEAN)
-            if tt in (TerrainType.OCEAN, TerrainType.COAST):
+            # Stop once we land on a water tile (edge to it was already recorded)
+            if is_water(q, r):
                 break
 
-            # Find lowest adjacent tile
-            neighbors = axial_neighbor_coords(q, r)
+            # Greedy descent: pick the neighbour with the lowest continuous elevation
             best_next: Optional[Tuple[int, int]] = None
-            best_elev = elev(q, r)
-            for nq, nr in neighbors:
+            best_e = elev(q, r)
+            for nq, nr in axial_neighbor_coords(q, r):
                 if (nq, nr) in visited:
                     continue
                 ne = elev(nq, nr)
-                if ne < best_elev:
-                    best_elev = ne
+                if ne < best_e:
+                    best_e = ne
                     best_next = (nq, nr)
 
             if best_next is None:
@@ -640,22 +669,32 @@ def _generate_rivers(
         if len(path) < 3:
             continue
 
-        # Mark river edges: for each step, find which edge connects the two tiles
-        # Flat-top hex neighbours in order E, NE, NW, W, SW, SE
-        _NEIGHBOR_DIRS = [
-            (1, 0), (1, -1), (0, -1),
-            (-1, 0), (-1, 1), (0, 1)
-        ]
+        # Record the shared edge for each consecutive pair in the path.
+        # Both tiles sharing an edge get the same physical border highlighted:
+        # tile A records the edge facing toward B, tile B records the opposite edge.
         for i in range(len(path) - 1):
             aq, ar = path[i]
             bq, br = path[i + 1]
             dq, dr = bq - aq, br - ar
-            for edge_idx, (eq, er) in enumerate(_NEIGHBOR_DIRS):
-                if (eq, er) == (dq, dr):
-                    river_edges.setdefault((aq, ar), [])
-                    if edge_idx not in river_edges[(aq, ar)]:
-                        river_edges[(aq, ar)].append(edge_idx)
-                    break
+
+            edge_a = _DIR_TO_EDGE.get((dq, dr))
+            if edge_a is None:
+                continue  # non-adjacent tiles (shouldn't happen)
+
+            # Opposite edge index (the edge on B that faces back toward A)
+            opp_dq, opp_dr = -dq, -dr
+            edge_b = _DIR_TO_EDGE.get((opp_dq, opp_dr))
+
+            # Mark edge on tile A
+            river_edges.setdefault((aq, ar), [])
+            if edge_a not in river_edges[(aq, ar)]:
+                river_edges[(aq, ar)].append(edge_a)
+
+            # Mark opposite edge on tile B so the border is highlighted from both sides
+            if edge_b is not None:
+                river_edges.setdefault((bq, br), [])
+                if edge_b not in river_edges[(bq, br)]:
+                    river_edges[(bq, br)].append(edge_b)
 
         rivers_placed += 1
 
@@ -696,7 +735,7 @@ def generate_map(
     tectonic_age = _world_age_map.get(world_age, 3.0)
 
     # 1. Plot types (ocean / land / hills / mountain)
-    plot_types = _generate_plot_types(
+    plot_types, continent_field = _generate_plot_types(
         width, height, seed,
         world_age=tectonic_age,
         num_continents=num_continents,
@@ -718,7 +757,7 @@ def generate_map(
 
     # 5. Rivers
     river_edges = _generate_rivers(
-        plot_types, terrain_types, width, height, rng
+        plot_types, terrain_types, continent_field, width, height, rng
     )
 
     # 6. Build HexGrid

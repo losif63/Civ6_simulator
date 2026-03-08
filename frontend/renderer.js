@@ -122,20 +122,6 @@ function hexRound(fq, fr) {
   return { q, r };
 }
 
-/**
- * Mid-point of a hex edge, given edge index 0–5.
- * Edge 0 = East face, going CCW.
- * For flat-top hex corners are at 0°,60°,120°,180°,240°,300°.
- * Edge i connects corner i and corner (i+1)%6.
- */
-function edgeMidpoint(cx, cy, size, edgeIdx) {
-  const a1 = (Math.PI / 180) * (60 * edgeIdx);
-  const a2 = (Math.PI / 180) * (60 * ((edgeIdx + 1) % 6));
-  return {
-    x: cx + size * (Math.cos(a1) + Math.cos(a2)) / 2,
-    y: cy + size * (Math.sin(a1) + Math.sin(a2)) / 2,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Renderer state
@@ -304,18 +290,19 @@ function drawMountainSymbol(ctx, cx, cy, size) {
 // ---------------------------------------------------------------------------
 
 function drawRiverEdges(tile, cx, cy, size, corners) {
+  // Edge index i connects corner[i] and corner[(i+1)%6].
+  // Drawing along the full edge segment places the river on the hex boundary.
   ctx.save();
   ctx.strokeStyle = RIVER_COLOR;
-  ctx.lineWidth = Math.max(1.5, size * 0.12);
+  ctx.lineWidth = Math.max(1.5, size * 0.14);
   ctx.lineCap = 'round';
 
   for (const edgeIdx of tile.river_edges) {
-    // Draw river as a line from hex centre to edge midpoint (inner half)
-    // This gives a "flowing to the edge" look
-    const mid = edgeMidpoint(cx, cy, size, edgeIdx);
+    const a = corners[edgeIdx];
+    const b = corners[(edgeIdx + 1) % 6];
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(mid.x, mid.y);
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
   ctx.restore();
