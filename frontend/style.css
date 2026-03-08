@@ -1,0 +1,122 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+header h1 {
+  font-size: 1.1rem;
+  color: #e2b96f;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#controls label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+#controls input[type="number"] {
+  width: 56px;
+  background: #0f3460;
+  border: 1px solid #1a6b9a;
+  color: #e0e0e0;
+  border-radius: 3px;
+  padding: 3px 5px;
+  font-size: 0.78rem;
+}
+
+#controls select {
+  background: #0f3460;
+  border: 1px solid #1a6b9a;
+  color: #e0e0e0;
+  border-radius: 3px;
+  padding: 3px 5px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+#controls button {
+  background: #0f3460;
+  border: 1px solid #1a6b9a;
+  color: #e2b96f;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#controls button:hover { background: #1a6b9a; }
+
+#map-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+}
+
+#map-container:active { cursor: grabbing; }
+
+#map-canvas {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+}
+
+#tile-info {
+  background: #16213e;
+  border-top: 1px solid #0f3460;
+  padding: 5px 16px;
+  font-size: 0.8rem;
+  color: #aaa;
+  flex-shrink: 0;
+  height: 26px;
+}
+
+#tile-info-text { color: #ccc; }
+
+/* Loading overlay */
+#loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #e2b96f;
+  pointer-events: none;
+}
