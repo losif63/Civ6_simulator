@@ -582,23 +582,30 @@ def _generate_rivers(
     This gives every tile a unique continuous elevation so the greedy descent
     always finds a downhill path all the way to the coastline.
 
-    Edge-index → neighbour-offset mapping (flat-top hex, y-axis down):
-      Corners at angles 60°*i; edge i connects corner[i] to corner[(i+1)%6].
-      Edge 0 (0°–60°)   faces E   → neighbour (dq=+1, dr= 0)
-      Edge 1 (60°–120°) faces SE  → neighbour (dq= 0, dr=+1)
-      Edge 2 (120°–180°)faces SW  → neighbour (dq=-1, dr=+1)
-      Edge 3 (180°–240°)faces W   → neighbour (dq=-1, dr= 0)
-      Edge 4 (240°–300°)faces NW  → neighbour (dq= 0, dr=-1)
-      Edge 5 (300°–360°)faces NE  → neighbour (dq=+1, dr=-1)
+    Edge-index → neighbour-offset mapping (pointy-top hex, y-axis down):
+      Corners at angles 30°+60°*i; edge i connects corner[i] to corner[(i+1)%6].
+      Edge 0 (30°–90°)   faces SE  → neighbour (dq= 0, dr=+1)
+      Edge 1 (90°–150°)  faces SW  → neighbour (dq=-1, dr=+1)
+      Edge 2 (150°–210°) faces W   → neighbour (dq=-1, dr= 0)
+      Edge 3 (210°–270°) faces NW  → neighbour (dq= 0, dr=-1)
+      Edge 4 (270°–330°) faces NE  → neighbour (dq=+1, dr=-1)
+      Edge 5 (330°–30°)  faces E   → neighbour (dq=+1, dr= 0)
     """
-    # Correct edge-index → (dq, dr) table, derived from flat-top corner geometry.
+    # Edge-index → (dq, dr) table for pointy-top hex geometry.
+    # Corners at 30°+60°*i; edge i connects corner[i] to corner[(i+1)%6].
+    # Edge 0 (30°–90°)   faces SE  → neighbour (dq= 0, dr=+1)
+    # Edge 1 (90°–150°)  faces SW  → neighbour (dq=-1, dr=+1)
+    # Edge 2 (150°–210°) faces W   → neighbour (dq=-1, dr= 0)
+    # Edge 3 (210°–270°) faces NW  → neighbour (dq= 0, dr=-1)
+    # Edge 4 (270°–330°) faces NE  → neighbour (dq=+1, dr=-1)
+    # Edge 5 (330°–30°)  faces E   → neighbour (dq=+1, dr= 0)
     _EDGE_TO_DIR: List[Tuple[int, int]] = [
-        ( 1,  0),   # edge 0 → E
-        ( 0,  1),   # edge 1 → SE
-        (-1,  1),   # edge 2 → SW
-        (-1,  0),   # edge 3 → W
-        ( 0, -1),   # edge 4 → NW
-        ( 1, -1),   # edge 5 → NE
+        ( 0,  1),   # edge 0 → SE
+        (-1,  1),   # edge 1 → SW
+        (-1,  0),   # edge 2 → W
+        ( 0, -1),   # edge 3 → NW
+        ( 1, -1),   # edge 4 → NE
+        ( 1,  0),   # edge 5 → E
     ]
     # Reverse lookup: (dq, dr) → edge index
     _DIR_TO_EDGE: Dict[Tuple[int, int], int] = {v: k for k, v in enumerate(_EDGE_TO_DIR)}

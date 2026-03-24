@@ -1,11 +1,11 @@
 /**
  * Civ6 Simulator — Hex Map Renderer
  *
- * Coordinate system: axial (q, r), flat-top hexagons.
+ * Coordinate system: axial (q, r), pointy-top hexagons.
  *
- * Pixel conversion (flat-top, size = distance from centre to corner):
- *   px = size * 3/2 * q
- *   py = size * sqrt(3) * (r + q/2)
+ * Pixel conversion (pointy-top, size = distance from centre to corner):
+ *   px = size * sqrt(3) * (q + r/2)
+ *   py = size * 3/2 * r
  *
  * Colors are taken from Civ6's Strategic View palette (StrategicView.artdef).
  */
@@ -82,34 +82,34 @@ const RIVER_COLOR = '#4aa8e0';
 // ---------------------------------------------------------------------------
 
 /**
- * Flat-top hex: axial (q, r) → canvas pixel centre.
+ * Pointy-top hex: axial (q, r) → canvas pixel centre.
  */
 function axialToPixel(q, r, size) {
   return {
-    x: size * 1.5 * q,
-    y: size * Math.sqrt(3) * (r + q / 2),
+    x: size * Math.sqrt(3) * (q + r / 2),
+    y: size * 1.5 * r,
   };
 }
 
 /**
- * Six corners of a flat-top hex centred at (cx, cy).
- * Angle 0° points to the right (East), stepping by 60°.
+ * Six corners of a pointy-top hex centred at (cx, cy).
+ * Angle 30° points to the upper-right corner, stepping by 60°.
  */
 function hexCorners(cx, cy, size) {
   const corners = [];
   for (let i = 0; i < 6; i++) {
-    const rad = (Math.PI / 180) * (60 * i);
+    const rad = (Math.PI / 180) * (30 + 60 * i);
     corners.push({ x: cx + size * Math.cos(rad), y: cy + size * Math.sin(rad) });
   }
   return corners;
 }
 
 /**
- * Canvas pixel → nearest axial hex coordinate.
+ * Canvas pixel → nearest axial hex coordinate (pointy-top inverse).
  */
 function pixelToAxial(px, py, size) {
-  const q = (2 / 3) * px / size;
-  const r = (-1 / 3) * px / size + (Math.sqrt(3) / 3) * py / size;
+  const q = (Math.sqrt(3) / 3 * px - py / 3) / size;
+  const r = (2 / 3 * py) / size;
   return hexRound(q, r);
 }
 
