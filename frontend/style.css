@@ -120,3 +120,40 @@ header h1 {
   color: #e2b96f;
   pointer-events: none;
 }
+
+/* Not-implemented overlay */
+#not-implemented {
+  position: absolute;
+  inset: 0;
+  background: rgba(26, 26, 46, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.not-impl-box {
+  border: 1px solid #0f3460;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 28px 40px;
+  text-align: center;
+  max-width: 360px;
+}
+
+.not-impl-title {
+  font-size: 1.1rem;
+  color: #e2b96f;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.not-impl-body {
+  font-size: 0.88rem;
+  color: #aaa;
+  line-height: 1.6;
+}
+
+.not-impl-body strong {
+  color: #ccc;
+}

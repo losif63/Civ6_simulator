@@ -131,6 +131,7 @@ const canvas = document.getElementById('map-canvas');
 const ctx = canvas.getContext('2d');
 const container = document.getElementById('map-container');
 const tileInfoText = document.getElementById('tile-info-text');
+const mapTypeSelect = document.getElementById('cfg-map-type');
 
 let mapData = null;
 let tileIndex = new Map();   // "q,r" → tile
@@ -355,7 +356,29 @@ function showLoading(visible) {
   }
 }
 
+function showNotImplemented(label) {
+  // Remove any existing overlay first
+  const existing = document.getElementById('not-implemented');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.id = 'not-implemented';
+  el.innerHTML =
+    `<div class="not-impl-box">` +
+    `<div class="not-impl-title">Not Yet Implemented</div>` +
+    `<div class="not-impl-body">Map type <strong>${label}</strong> is not yet available.<br>` +
+    `Select <strong>Continents</strong> to generate a map.</div>` +
+    `</div>`;
+  container.appendChild(el);
+}
+
+function hideNotImplemented() {
+  const el = document.getElementById('not-implemented');
+  if (el) el.remove();
+}
+
 async function fetchMap(params) {
+  hideNotImplemented();
   showLoading(true);
   tileInfoText.textContent = 'Loading…';
   try {
@@ -369,6 +392,14 @@ async function fetchMap(params) {
       method = 'GET';
     }
     const res = await fetch(url, { method });
+
+    if (res.status === 501) {
+      const data = await res.json();
+      showNotImplemented(data.label ?? data.map_type);
+      tileInfoText.textContent = `Map type '${data.label}' is not yet implemented.`;
+      return;
+    }
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     mapData = await res.json();
     tileIndex.clear();
@@ -384,6 +415,23 @@ async function fetchMap(params) {
     tileInfoText.textContent = `Error: ${err.message}`;
   } finally {
     showLoading(false);
+  }
+}
+
+async function populateMapTypes() {
+  try {
+    const res = await fetch('/api/map-types');
+    const types = await res.json();
+    mapTypeSelect.innerHTML = '';
+    for (const { key, label, implemented } of types) {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = implemented ? label : `${label} ✕`;
+      opt.selected = (key === 'continents');
+      mapTypeSelect.appendChild(opt);
+    }
+  } catch (_) {
+    // fallback: leave select empty, generation will still work
   }
 }
 
@@ -455,6 +503,7 @@ function updateHover(e) {
 document.getElementById('btn-generate').addEventListener('click', () => {
   const [width, height] = document.getElementById('cfg-map-size').value.split('x');
   fetchMap({
+    map_type:       mapTypeSelect.value,
     width,
     height,
     seed:           document.getElementById('cfg-seed').value,
@@ -476,4 +525,5 @@ document.getElementById('btn-reset-view').addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 
 resizeCanvas();
+populateMapTypes();
 fetchMap(null);
