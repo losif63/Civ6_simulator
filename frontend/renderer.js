@@ -453,9 +453,10 @@ function updateHover(e) {
 // ---------------------------------------------------------------------------
 
 document.getElementById('btn-generate').addEventListener('click', () => {
+  const [width, height] = document.getElementById('cfg-map-size').value.split('x');
   fetchMap({
-    width:          document.getElementById('cfg-width').value,
-    height:         document.getElementById('cfg-height').value,
+    width,
+    height,
     seed:           document.getElementById('cfg-seed').value,
     num_continents: document.getElementById('cfg-continents').value,
     world_age:      document.getElementById('cfg-world-age').value,
